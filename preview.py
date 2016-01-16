@@ -3,6 +3,8 @@
 import sys
 import signal
 
+import argparse
+
 from gi import require_version
 
 require_version('Gtk', '3.0')
@@ -17,10 +19,10 @@ class PreviewUi(Gtk.Window):
 
     sizes = [16, 22, 24, 32, 48, 96]
 
-    def __init__(self):
+    def __init__(self, clargs):
         super(PreviewUi, self).__init__()
 
-        self.iconKey = "firefox"
+        self.iconKey = clargs.icon
 
         self.set_title("Icon Preview")
         self.set_wmclass("icon-preview", "Icon Preview")
@@ -135,7 +137,15 @@ class PreviewUi(Gtk.Window):
         self.icon_box.show_all()
 
 def main():
-    gui = PreviewUi()
+
+    parser = argparse.ArgumentParser(description='Preview icons in an icon theme')
+
+    parser.add_argument('-i', '--icon', metavar='NAME',
+                            type=str, default='firefox',
+                            help='the initial icon to preview')
+
+    args = parser.parse_args()
+    gui = PreviewUi(args)
     gui.start()
 
 if __name__ == "__main__":
