@@ -1,5 +1,6 @@
 #! /usr/env/python
 
+import sys
 import signal
 
 from gi import require_version
@@ -7,6 +8,7 @@ from gi import require_version
 require_version('Gtk', '3.0')
 from gi.repository import Gtk
 from gi.repository import Gdk
+from gi.repository import GLib
 from gi.repository import GdkPixbuf
 from gi.repository import GObject
 
@@ -44,10 +46,16 @@ class PreviewUi(Gtk.Window):
     def start(self):
         self.bind_signals()
 
-        Gtk.main()
+        # https://bugzilla.gnome.org/show_bug.cgi?id=622084
+        # so don't just use Gtk.main()
+        try:
+            GLib.MainLoop().run()
+        except KeyboardInterrupt:
+            pass
 
     def stop(self, *args):
-        Gtk.main_quit()
+        GLib.MainLoop().quit()
+        sys.exit(0)
 
     def create_icon_set_box(self, icons, bg):
 
