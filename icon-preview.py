@@ -1,7 +1,9 @@
 #! /usr/bin/env python
 
 import sys
+import os
 import signal
+import tempfile
 
 import argparse
 
@@ -23,6 +25,7 @@ class PreviewUi(Gtk.Window):
         super(PreviewUi, self).__init__()
 
         self.iconKey = clargs.icon
+        self.out_dir = clargs.out_dir
 
         self.set_title("Icon Preview")
         self.set_wmclass("icon-preview", "Icon Preview")
@@ -33,6 +36,10 @@ class PreviewUi(Gtk.Window):
         self.set_icon_name("gnome-settings-theme")
 
         self.connect("destroy", self.stop)
+        self.connect("key-press-event",self._key_press_event)
+
+        if clargs.save_image:
+            self.save_image_handler_id = self.connect_after('draw', self._auto_save_image)
 
         self.create_layout()
 
@@ -41,6 +48,13 @@ class PreviewUi(Gtk.Window):
     def bind_signals(self):
         signal.signal(signal.SIGINT, self.signal_stop_received)  # 9
         signal.signal(signal.SIGTERM, self.signal_stop_received)  # 15
+
+    def _key_press_event(self,widget,event):
+
+        ctrl = (event.state & Gdk.ModifierType.CONTROL_MASK)
+
+        if ctrl and event.keyval == Gdk.KEY_s:
+            self._save_image()
 
     def signal_stop_received(self, *args):
         self.stop()
@@ -58,6 +72,36 @@ class PreviewUi(Gtk.Window):
     def stop(self, *args):
         GLib.MainLoop().quit()
         sys.exit(0)
+
+    def _auto_save_image(self, w, e):
+        self._save_image()
+        self.disconnect(self.save_image_handler_id)
+
+        self.stop()
+
+    def _save_image(self):
+
+        window = self.get_window()
+
+        rect = self.icon_box.get_allocation()
+        # Fetch what we rendered on the drawing area into a pixbuf
+        pixbuf = Gdk.pixbuf_get_from_window(window, rect.x, rect.y,
+                                          rect.width, rect.height)
+
+        # Write the pixbuf as a PNG image to disk
+
+        suffix = 0
+        while True:
+            filename = self.iconKey + (('-%d' % suffix) if suffix else '') + '.png'
+            path = os.path.join(self.out_dir, filename)
+
+            if not os.path.exists(path):
+                break
+
+            suffix += 1
+
+        pixbuf.savev(path, 'png', [], [])
+        print("Saved image: ", path)
 
     def create_icon_set_box(self, icons, bg):
 
@@ -143,8 +187,17 @@ def main():
     parser.add_argument('-i', '--icon', metavar='NAME',
                             type=str, default='firefox',
                             help='the initial icon to preview')
-
+    parser.add_argument('-o', '--out-dir', metavar='DIR',
+                            type=str, default='',
+                            help='output dir for images, system temp dir if not specified')
+    parser.add_argument('-s', '--save-image',
+                            action='store_true',
+                            help='automatically save the image after startup and close')
     args = parser.parse_args()
+
+    if not args.out_dir:
+        args.out_dir = tempfile.gettempdir()
+
     gui = PreviewUi(args)
     gui.start()
 
